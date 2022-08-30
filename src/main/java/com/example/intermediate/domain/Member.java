@@ -1,6 +1,8 @@
 package com.example.intermediate.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.util.List;
 import java.util.Objects;
 import javax.persistence.Column;
 import javax.persistence.Entity;
