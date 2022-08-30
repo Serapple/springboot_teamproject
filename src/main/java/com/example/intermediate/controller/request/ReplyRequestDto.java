@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReplyRequestDto {
+    private Long commentId;
     private String member;
     private String content;
 }
