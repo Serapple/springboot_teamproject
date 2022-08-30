@@ -4,8 +4,9 @@ import java.time.LocalDateTime;
 
 public class ReplyResponseDto {
     private Long id;
-    private String member;
+    private String author;
     private String content;
+    private Long commentLikeCount;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 }

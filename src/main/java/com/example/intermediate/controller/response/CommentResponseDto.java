@@ -18,5 +18,5 @@ public class CommentResponseDto {
   private String content;
   private LocalDateTime createdAt;
   private LocalDateTime modifiedAt;
-  private List<ReCommentResponseDto> reCommentResponseDtoList;
+  private List<ReplyResponseDto> replyResponseDtoList;
 }
