@@ -34,6 +34,9 @@ public class Post extends Timestamped {
   @Column(nullable = false)
   private String content;
 
+  @Column(nullable = false)
+  private long postLikeCount;
+
   @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
   private List<Comment> comments;
 
@@ -49,5 +52,10 @@ public class Post extends Timestamped {
   public boolean validateMember(Member member) {
     return !this.member.equals(member);
   }
+  public long pluslikecount(){
+    return postLikeCount++;
+  }
+
+  public long minuslikecount(){return postLikeCount--; }
 
 }
