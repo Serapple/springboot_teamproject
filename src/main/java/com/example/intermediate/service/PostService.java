@@ -1,13 +1,10 @@
 package com.example.intermediate.service;
 
-import com.example.intermediate.controller.response.CommentResponseDto;
-import com.example.intermediate.controller.response.PostResponseDto;
-import com.example.intermediate.controller.response.ReplyResponseDto;
+import com.example.intermediate.controller.response.*;
 import com.example.intermediate.domain.Comment;
 import com.example.intermediate.domain.Member;
 import com.example.intermediate.domain.Post;
 import com.example.intermediate.controller.request.PostRequestDto;
-import com.example.intermediate.controller.response.ResponseDto;
 import com.example.intermediate.domain.Reply;
 import com.example.intermediate.jwt.TokenProvider;
 import com.example.intermediate.repository.CommentRepository;
@@ -34,6 +31,7 @@ public class PostService {
 
   private final MemberRepository memberRepository;
 
+  // 게시글 생성
   @Transactional
   public ResponseDto<?> createPost(PostRequestDto requestDto, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
@@ -44,15 +42,27 @@ public class PostService {
       return ResponseDto.fail("MEMBER_NOT_FOUND",
               "로그인이 필요합니다.");
     }
-    String token = tokenProvider.resolveToken(request);
-    String nickname = tokenProvider.getNickname(token);
-    Member member = memberRepository.findByNickname(nickname).orElseThrow(
-            () -> new RuntimeException("사용자 없음")
-    );
+//    String token = tokenProvider.resolveToken(request);
+//    String nickname = tokenProvider.getNickname(token);
+//    Member member = memberRepository.findByNickname(nickname).orElseThrow(
+//            () -> new RuntimeException("사용자 없음")
+//    );
+
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN","Token이 유효하지 않습니다.");
+    }
+    if(requestDto.getTitle()==null){return ResponseDto.fail("TITLE_EMPTY", "제목 칸이 비었습니다.");
+    }
+    if(requestDto.getContent()==null){return ResponseDto.fail("CONTENT_EMPTY", "작성된 글이 없습니다.");
+    }
+
+
     Post post = Post.builder()
             .title(requestDto.getTitle())
             .content(requestDto.getContent())
             .member(member)
+            // imageUrl 추가
             .build();
     postRepository.save(post);
     return ResponseDto.success(
@@ -63,10 +73,12 @@ public class PostService {
                     .author(post.getMember().getNickname())
                     .createdAt(post.getCreatedAt())
                     .modifiedAt(post.getModifiedAt())
+                    // imageUrl 추가
                     .build()
     );
   }
 
+  // 게시글 일부 조회
   @Transactional(readOnly = true)
   public ResponseDto<?> getPost(Long id) {
     Post post = isPresentPost(id);
@@ -118,15 +130,36 @@ public class PostService {
                     .author(post.getMember().getNickname())
                     .createdAt(post.getCreatedAt())
                     .modifiedAt(post.getModifiedAt())
+                    // imageUrl 추가
                     .build()
     );
   }
 
+  // 게시글 전체 조회
   @Transactional(readOnly = true)
   public ResponseDto<?> getAllPost() {
-    return ResponseDto.success(postRepository.findAllByOrderByModifiedAtDesc());
+    List<Post> postList = postRepository.findAllByOrderByModifiedAtDesc();
+    List<PostAllResponseDto> postAllResponseDtoList = new ArrayList<>();
+    for (Post post : postList) {
+      Member member = memberRepository.findById(post.getMember().getId()).orElse(null);
+      List<Comment> commentList = commentRepository.findAllByPost(post);
+      PostAllResponseDto allPostResponseDto = PostAllResponseDto.builder()
+              .content(post.getContent())
+              .id(post.getId())
+              .author(member.getNickname())
+              .createdAt(post.getCreatedAt())
+              .modifiedAt(post.getModifiedAt())
+              .title(post.getTitle())
+              .Comment((long) commentList.size())
+              // imageUrl 추가
+              .build();
+      postAllResponseDtoList.add(allPostResponseDto);
+    }
+
+    return ResponseDto.success(postAllResponseDtoList);
   }
 
+  // 게시글 수정
   @Transactional
   public ResponseDto<Post> updatePost(Long id, PostRequestDto requestDto, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
@@ -139,16 +172,25 @@ public class PostService {
               "로그인이 필요합니다.");
     }
 
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
 
     Post post = isPresentPost(id);
     if (null == post) {
       return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
     }
 
+    if (post.validateMember(member)) {
+      return ResponseDto.fail("BAD_REQUEST", "작성자만 수정할 수 있습니다.");
+    }
+
     post.update(requestDto);
     return ResponseDto.success(post);
   }
 
+  // 게시글 삭제
   @Transactional
   public ResponseDto<?> deletePost(Long id, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
@@ -161,10 +203,18 @@ public class PostService {
               "로그인이 필요합니다.");
     }
 
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
 
     Post post = isPresentPost(id);
     if (null == post) {
       return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
+    }
+
+    if (post.validateMember(member)) {
+      return ResponseDto.fail("BAD_REQUEST", "작성자만 삭제할 수 있습니다.");
     }
 
     postRepository.delete(post);
@@ -175,5 +225,13 @@ public class PostService {
   public Post isPresentPost(Long id) {
     Optional<Post> optionalPost = postRepository.findById(id);
     return optionalPost.orElse(null);
+  }
+
+  @Transactional
+  public Member validateMember(HttpServletRequest request) {
+    if (!tokenProvider.validateToken(request.getHeader("Refresh-Token"))) {
+      return null;
+    }
+    return tokenProvider.getMemberFromAuthentication();
   }
 }
