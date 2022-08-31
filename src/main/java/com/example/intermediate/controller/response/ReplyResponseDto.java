@@ -15,7 +15,7 @@ public class ReplyResponseDto {
     private Long id;
     private String author;
     private String content;
-    private Long commentLikeCount;
+    private Long replyLikeCount;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 }
