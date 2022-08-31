@@ -99,6 +99,7 @@ public class PostService {
                       .id(comment.getId())
                       .author(comment.getMember().getNickname())
                       .content(comment.getContent())
+                      .commentLikeCount(comment.getCommentLikeCount())
                       .createdAt(comment.getCreatedAt())
                       .modifiedAt(comment.getModifiedAt())
                       .replyResponseDtoList(replyResponseDtoList)
