@@ -41,7 +41,7 @@ public class LikeService {
         if(null==post){
             return ResponseDto.fail("POST_NOT_FOUND", "존재하지 않는 게시글 입니다.");
         }
-        List<Long> postlike = member.getPostLike;
+
     }
     @Transactional(readOnly = true)
     public Post isPresentPost(Long id) {

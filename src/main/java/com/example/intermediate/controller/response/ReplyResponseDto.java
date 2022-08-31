@@ -12,9 +12,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ReplyResponseDto {
     private Long id;
+    private Long commentId;
     private String author;
     private String content;
-    private Long commentLikeCount;
+    private Long replyLikeCount;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 }
