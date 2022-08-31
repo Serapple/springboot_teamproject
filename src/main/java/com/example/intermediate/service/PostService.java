@@ -83,6 +83,7 @@ public class PostService {
       for (Reply reply : replyList) {
         replyResponseDtoList.add(
                 ReplyResponseDto.builder()
+                        .commentId((reply.getComment().getId()))
                         .id(reply.getId())
                         .author(reply.getMember().getNickname())
                         .content(reply.getContent())
