@@ -2,13 +2,11 @@ package com.example.intermediate.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,10 +28,13 @@ public class Member extends Timestamped {
   @Column(nullable = false)
   private String nickname;
 
+  @OneToMany(mappedBy = "member",fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Post> posts;
+
   @Column(nullable = false)
   @JsonIgnore
   private String password;
-
+  public static List<?> likednum= new ArrayList<>();
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -50,6 +51,8 @@ public class Member extends Timestamped {
   public int hashCode() {
     return getClass().hashCode();
   }
+
+
 
   public boolean validatePassword(PasswordEncoder passwordEncoder, String password) {
     return passwordEncoder.matches(password, this.password);

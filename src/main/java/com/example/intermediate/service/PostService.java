@@ -9,7 +9,6 @@ import com.example.intermediate.controller.request.PostRequestDto;
 import com.example.intermediate.controller.response.ResponseDto;
 import com.example.intermediate.jwt.TokenProvider;
 import com.example.intermediate.repository.CommentRepository;
-import com.example.intermediate.repository.MemberRepository;
 import com.example.intermediate.repository.PostRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +17,7 @@ import javax.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -25,29 +25,30 @@ public class PostService {
 
   private final PostRepository postRepository;
   private final CommentRepository commentRepository;
-
+  private final FileUploadService fileUploadService;
   private final TokenProvider tokenProvider;
 
-  private final MemberRepository memberRepository;
-
   @Transactional
-  public ResponseDto<?> createPost(PostRequestDto requestDto, HttpServletRequest request) {
+  public ResponseDto<?> createPost(MultipartFile multipartFile,PostRequestDto requestDto, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
       return ResponseDto.fail("MEMBER_NOT_FOUND",
               "로그인이 필요합니다.");
     }
+
     if (null == request.getHeader("Authorization")) {
       return ResponseDto.fail("MEMBER_NOT_FOUND",
               "로그인이 필요합니다.");
     }
-    String token = tokenProvider.resolveToken(request);
-    String nickname = tokenProvider.getNickname(token);
-    Member member = memberRepository.findByNickname(nickname).orElseThrow(
-            () -> new RuntimeException("사용자 없음")
-    );
+
+    Member member = validateMember(request);//request로 온 토큰으로 멤버 객체 반환
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
+
     Post post = Post.builder()
             .title(requestDto.getTitle())
             .content(requestDto.getContent())
+            .Url(fileUploadService.uploadImage(multipartFile))
             .member(member)
             .build();
     postRepository.save(post);
@@ -57,11 +58,13 @@ public class PostService {
                     .title(post.getTitle())
                     .content(post.getContent())
                     .author(post.getMember().getNickname())
+                    .Url(post.getUrl())
                     .createdAt(post.getCreatedAt())
                     .modifiedAt(post.getModifiedAt())
                     .build()
     );
   }
+
 
   @Transactional(readOnly = true)
   public ResponseDto<?> getPost(Long id) {
@@ -100,7 +103,22 @@ public class PostService {
 
   @Transactional(readOnly = true)
   public ResponseDto<?> getAllPost() {
-    return ResponseDto.success(postRepository.findAllByOrderByModifiedAtDesc());
+    List<Post> postList = postRepository.findAllByOrderByModifiedAtDesc();
+    List<PostResponseDto> responseDtos = new ArrayList<PostResponseDto>();
+    for (Post post : postList) {
+      responseDtos.add(
+              PostResponseDto.builder()
+                      .id(post.getId())
+                      .title(post.getTitle())
+                      .content(post.getContent())
+                      .author(post.getMember().getNickname())
+//                      .commentResponseDtoList(post.getComments())
+                      .createdAt(post.getCreatedAt())
+                      .modifiedAt(post.getModifiedAt())
+                      .build()
+      );
+    }
+    return ResponseDto.success(responseDtos);
   }
 
   @Transactional
@@ -115,10 +133,18 @@ public class PostService {
               "로그인이 필요합니다.");
     }
 
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
 
     Post post = isPresentPost(id);
     if (null == post) {
       return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
+    }
+
+    if (post.validateMember(member)) {
+      return ResponseDto.fail("BAD_REQUEST", "작성자만 수정할 수 있습니다.");
     }
 
     post.update(requestDto);
@@ -137,10 +163,18 @@ public class PostService {
               "로그인이 필요합니다.");
     }
 
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
 
     Post post = isPresentPost(id);
     if (null == post) {
       return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
+    }
+
+    if (post.validateMember(member)) {
+      return ResponseDto.fail("BAD_REQUEST", "작성자만 삭제할 수 있습니다.");
     }
 
     postRepository.delete(post);
@@ -152,4 +186,13 @@ public class PostService {
     Optional<Post> optionalPost = postRepository.findById(id);
     return optionalPost.orElse(null);
   }
+
+  @Transactional
+  public Member validateMember(HttpServletRequest request) {
+    if (!tokenProvider.validateToken(request.getHeader("Refresh-Token"))) {
+      return null;
+    }
+    return tokenProvider.getMemberFromAuthentication();
+  }
+
 }
