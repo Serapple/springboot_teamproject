@@ -29,9 +29,7 @@ public class PostService {
 
   private final PostRepository postRepository;
   private final CommentRepository commentRepository;
-
   private final ReplyRepository replyRepository;
-
   private final TokenProvider tokenProvider;
 
   private final MemberRepository memberRepository;
@@ -82,18 +80,21 @@ public class PostService {
     for (Comment comment : commentList) {
       List<Reply> replyList = replyRepository.findAllByComment(comment);
       List<ReplyResponseDto> replyResponseDtoList = new ArrayList<>();
-      for (Reply reply: replyList){
+      for (Reply reply : replyList) {
         replyResponseDtoList.add(
                 ReplyResponseDto.builder()
-                        .commentId(reply.getComment().getId())
+                        .commentId((reply.getComment().getId()))
                         .id(reply.getId())
                         .author(reply.getMember().getNickname())
                         .content(reply.getContent())
                         .replyLikeCount(reply.getReplyLikeCount())
                         .createdAt(reply.getCreatedAt())
                         .modifiedAt(reply.getModifiedAt())
-                        .build());
+                        .build()
+        );
+
       }
+
       commentResponseDtoList.add(
               CommentResponseDto.builder()
                       .id(comment.getId())
@@ -103,7 +104,8 @@ public class PostService {
                       .createdAt(comment.getCreatedAt())
                       .modifiedAt(comment.getModifiedAt())
                       .replyResponseDtoList(replyResponseDtoList)
-                      .build());
+                      .build()
+      );
     }
 
     return ResponseDto.success(
