@@ -35,9 +35,13 @@ public class Post extends Timestamped {
   private String content;
 
   @Column(nullable = false)
-  private long postLikeCount;
+  private int likenum;
 
-  @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+  @Column(nullable = false)
+  private String Url;
+  //post에 속한 comment들
+  //fetch는 읽어오기 전략, LAZY는 필요할 때(사용하는 구간에 트랜젝션), EAGER은 항상
+  @OneToMany(mappedBy = "post",fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
   private List<Comment> comments;
 
   @JoinColumn(name = "member_id", nullable = false)
@@ -49,13 +53,19 @@ public class Post extends Timestamped {
     this.content = postRequestDto.getContent();
   }
 
+  public void pushLike()
+  {
+    this.likenum++;
+  }
+  public void pushDislike()
+  {
+    if(this.likenum>0)
+    {
+      this.likenum--;
+    }
+  }
   public boolean validateMember(Member member) {
     return !this.member.equals(member);
   }
-  public long pluslikecount(){
-    return postLikeCount++;
-  }
-
-  public long minuslikecount(){return postLikeCount--; }
 
 }

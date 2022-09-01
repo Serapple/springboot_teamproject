@@ -34,11 +34,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-
-@Slf4j //로깅에 대한 추상 레이어를 제공하는 인터페이스의 모음
+@Slf4j
 @Component
 public class TokenProvider {
 
@@ -52,12 +49,10 @@ public class TokenProvider {
   private final RefreshTokenRepository refreshTokenRepository;
 //  private final UserDetailsServiceImpl userDetailsService;
 
-  /*
-  @Value -> properties에 있는 자료를 가져오기 위함
- */
-  public TokenProvider(@Value("${jwt.secret}") String secretKey, RefreshTokenRepository refreshTokenRepository) {
+  public TokenProvider(@Value("${jwt.secret}") String secretKey,
+                       RefreshTokenRepository refreshTokenRepository) {
     this.refreshTokenRepository = refreshTokenRepository;
-    byte[] keyBytes =  Decoders.BASE64.decode(secretKey); //
+    byte[] keyBytes = Decoders.BASE64.decode(secretKey);
     this.key = Keys.hmacShaKeyFor(keyBytes);
   }
 
@@ -66,31 +61,31 @@ public class TokenProvider {
 
     Date accessTokenExpiresIn = new Date(now + ACCESS_TOKEN_EXPIRE_TIME);
     String accessToken = Jwts.builder()
-        .setSubject(member.getNickname())
-        .claim(AUTHORITIES_KEY, Authority.ROLE_MEMBER.toString())
-        .setExpiration(accessTokenExpiresIn)
-        .signWith(key, SignatureAlgorithm.HS256)
-        .compact();
+            .setSubject(member.getNickname())
+            .claim(AUTHORITIES_KEY, Authority.ROLE_MEMBER.toString())
+            .setExpiration(accessTokenExpiresIn)
+            .signWith(key, SignatureAlgorithm.HS256)
+            .compact();
 
     String refreshToken = Jwts.builder()
-        .setExpiration(new Date(now + REFRESH_TOKEN_EXPRIRE_TIME))
-        .signWith(key, SignatureAlgorithm.HS256)
-        .compact();
+            .setExpiration(new Date(now + REFRESH_TOKEN_EXPRIRE_TIME))
+            .signWith(key, SignatureAlgorithm.HS256)
+            .compact();
 
     RefreshToken refreshTokenObject = RefreshToken.builder()
-        .id(member.getId())
-        .member(member)
-        .value(refreshToken)
-        .build();
+            .id(member.getId())
+            .member(member)
+            .value(refreshToken)
+            .build();
 
     refreshTokenRepository.save(refreshTokenObject);
 
     return TokenDto.builder()
-        .grantType(BEARER_PREFIX)
-        .accessToken(accessToken)
-        .accessTokenExpiresIn(accessTokenExpiresIn.getTime())
-        .refreshToken(refreshToken)
-        .build();
+            .grantType(BEARER_PREFIX)
+            .accessToken(accessToken)
+            .accessTokenExpiresIn(accessTokenExpiresIn.getTime())
+            .refreshToken(refreshToken)
+            .build();
 
   }
 
@@ -114,7 +109,7 @@ public class TokenProvider {
   public Member getMemberFromAuthentication() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null || AnonymousAuthenticationToken.class.
-        isAssignableFrom(authentication.getClass())) {
+            isAssignableFrom(authentication.getClass())) {
       return null;
     }
     return ((UserDetailsImpl) authentication.getPrincipal()).getMember();
@@ -159,16 +154,5 @@ public class TokenProvider {
 
     refreshTokenRepository.delete(refreshToken);
     return ResponseDto.success("success");
-  }
-  public String resolveToken(HttpServletRequest request) {
-    String bearerToken = request.getHeader(JwtFilter.AUTHORIZATION_HEADER);
-    if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
-      return bearerToken.substring(7);
-    }
-    return null;
-  }
-
-  public String getNickname(String token){
-    return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
   }
 }

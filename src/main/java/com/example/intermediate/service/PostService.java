@@ -1,24 +1,25 @@
 package com.example.intermediate.service;
 
-import com.example.intermediate.controller.response.*;
-import com.example.intermediate.domain.Comment;
-import com.example.intermediate.domain.Member;
-import com.example.intermediate.domain.Post;
+import com.example.intermediate.controller.response.CommentResponseDto;
+import com.example.intermediate.controller.response.PostResponseDto;
+import com.example.intermediate.controller.response.RecommentResponseDto;
+import com.example.intermediate.domain.*;
 import com.example.intermediate.controller.request.PostRequestDto;
-import com.example.intermediate.domain.Reply;
+import com.example.intermediate.controller.response.ResponseDto;
 import com.example.intermediate.jwt.TokenProvider;
 import com.example.intermediate.repository.CommentRepository;
-import com.example.intermediate.repository.MemberRepository;
 import com.example.intermediate.repository.PostRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
 
-import com.example.intermediate.repository.ReplyRepository;
+import com.example.intermediate.repository.PostlikeRepository;
+import com.example.intermediate.repository.RecommentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -26,43 +27,34 @@ public class PostService {
 
   private final PostRepository postRepository;
   private final CommentRepository commentRepository;
-  private final ReplyRepository replyRepository;
+  private final RecommentRepository recommentRepository;
+  private final PostlikeRepository postlikeRepository;
+  private final FileUploadService fileUploadService;
   private final TokenProvider tokenProvider;
 
-  private final MemberRepository memberRepository;
-
-  // 게시글 생성
   @Transactional
-  public ResponseDto<?> createPost(PostRequestDto requestDto, HttpServletRequest request) {
+  public ResponseDto<?> createPost(MultipartFile multipartFile,PostRequestDto requestDto, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
       return ResponseDto.fail("MEMBER_NOT_FOUND",
               "로그인이 필요합니다.");
     }
+
     if (null == request.getHeader("Authorization")) {
       return ResponseDto.fail("MEMBER_NOT_FOUND",
               "로그인이 필요합니다.");
     }
-//    String token = tokenProvider.resolveToken(request);
-//    String nickname = tokenProvider.getNickname(token);
-//    Member member = memberRepository.findByNickname(nickname).orElseThrow(
-//            () -> new RuntimeException("사용자 없음")
-//    );
 
-    Member member = validateMember(request);
+    Member member = validateMember(request);//request로 온 토큰으로 멤버 객체 반환
     if (null == member) {
-      return ResponseDto.fail("INVALID_TOKEN","Token이 유효하지 않습니다.");
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
     }
-    if(requestDto.getTitle()==null){return ResponseDto.fail("TITLE_EMPTY", "제목 칸이 비었습니다.");
-    }
-    if(requestDto.getContent()==null){return ResponseDto.fail("CONTENT_EMPTY", "작성된 글이 없습니다.");
-    }
-
 
     Post post = Post.builder()
             .title(requestDto.getTitle())
             .content(requestDto.getContent())
+            .likenum(0)
+            .Url(fileUploadService.uploadImage(multipartFile))
             .member(member)
-            // imageUrl 추가
             .build();
     postRepository.save(post);
     return ResponseDto.success(
@@ -71,14 +63,15 @@ public class PostService {
                     .title(post.getTitle())
                     .content(post.getContent())
                     .author(post.getMember().getNickname())
+                    .Url(post.getUrl())
+                    .likenum(post.getLikenum())
                     .createdAt(post.getCreatedAt())
                     .modifiedAt(post.getModifiedAt())
-                    // imageUrl 추가
                     .build()
     );
   }
 
-  // 게시글 일부 조회
+
   @Transactional(readOnly = true)
   public ResponseDto<?> getPost(Long id) {
     Post post = isPresentPost(id);
@@ -86,80 +79,43 @@ public class PostService {
       return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
     }
 
-    List<Comment> commentList = commentRepository.findAllByPost(post);
-    List<CommentResponseDto> commentResponseDtoList = new ArrayList<>();
-
-    for (Comment comment : commentList) {
-      List<Reply> replyList = replyRepository.findAllByComment(comment);
-      List<ReplyResponseDto> replyResponseDtoList = new ArrayList<>();
-      for (Reply reply : replyList) {
-        replyResponseDtoList.add(
-                ReplyResponseDto.builder()
-                        .commentId((reply.getComment().getId()))
-                        .id(reply.getId())
-                        .author(reply.getMember().getNickname())
-                        .content(reply.getContent())
-                        .replyLikeCount(reply.getReplyLikeCount())
-                        .createdAt(reply.getCreatedAt())
-                        .modifiedAt(reply.getModifiedAt())
-                        .build()
-        );
-
-      }
-
-      commentResponseDtoList.add(
-              CommentResponseDto.builder()
-                      .id(comment.getId())
-                      .author(comment.getMember().getNickname())
-                      .content(comment.getContent())
-                      .commentLikeCount(comment.getCommentLikeCount())
-                      .createdAt(comment.getCreatedAt())
-                      .modifiedAt(comment.getModifiedAt())
-                      .replyResponseDtoList(replyResponseDtoList)
-                      .build()
-      );
-    }
-
     return ResponseDto.success(
             PostResponseDto.builder()
                     .id(post.getId())
                     .title(post.getTitle())
                     .content(post.getContent())
-                    .postLikeCount(post.getPostLikeCount())
-                    .commentResponseDtoList(commentResponseDtoList)
+                    .commentResponseDtoList(commentByPost(post,post.getMember()))
                     .author(post.getMember().getNickname())
+                    .Url(post.getUrl())
+                    .likenum(post.getLikenum())
                     .createdAt(post.getCreatedAt())
                     .modifiedAt(post.getModifiedAt())
-                    // imageUrl 추가
                     .build()
     );
   }
 
-  // 게시글 전체 조회
   @Transactional(readOnly = true)
   public ResponseDto<?> getAllPost() {
     List<Post> postList = postRepository.findAllByOrderByModifiedAtDesc();
-    List<PostAllResponseDto> postAllResponseDtoList = new ArrayList<>();
+    List<PostResponseDto> responseDtos = new ArrayList<PostResponseDto>();
     for (Post post : postList) {
-      Member member = memberRepository.findById(post.getMember().getId()).orElse(null);
-      List<Comment> commentList = commentRepository.findAllByPost(post);
-      PostAllResponseDto allPostResponseDto = PostAllResponseDto.builder()
-              .content(post.getContent())
-              .id(post.getId())
-              .author(member.getNickname())
-              .createdAt(post.getCreatedAt())
-              .modifiedAt(post.getModifiedAt())
-              .title(post.getTitle())
-              .Comment((long) commentList.size())
-              // imageUrl 추가
-              .build();
-      postAllResponseDtoList.add(allPostResponseDto);
+      responseDtos.add(
+              PostResponseDto.builder()
+                      .id(post.getId())
+                      .title(post.getTitle())
+                      .content(post.getContent())
+                      .author(post.getMember().getNickname())
+                      .Url(post.getUrl())
+                      .likenum(post.getLikenum())
+                      .commentResponseDtoList(commentByPost(post,post.getMember()))
+                      .createdAt(post.getCreatedAt())
+                      .modifiedAt(post.getModifiedAt())
+                      .build()
+      );
     }
-
-    return ResponseDto.success(postAllResponseDtoList);
+    return ResponseDto.success(responseDtos);
   }
 
-  // 게시글 수정
   @Transactional
   public ResponseDto<Post> updatePost(Long id, PostRequestDto requestDto, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
@@ -190,7 +146,6 @@ public class PostService {
     return ResponseDto.success(post);
   }
 
-  // 게시글 삭제
   @Transactional
   public ResponseDto<?> deletePost(Long id, HttpServletRequest request) {
     if (null == request.getHeader("Refresh-Token")) {
@@ -234,4 +189,129 @@ public class PostService {
     }
     return tokenProvider.getMemberFromAuthentication();
   }
+
+  public List<CommentResponseDto> commentByPost(Post post, Member member)
+  {
+    List<Comment> commentList= commentRepository.findAllByPost(post);
+
+    List<CommentResponseDto> commentResponseDtos=new ArrayList<>();
+
+    for(Comment comment: commentList)
+    {
+      List<Recomment> recommentList=recommentRepository.findAllByComment(comment);
+      List<RecommentResponseDto> recommentResponseDtos=new ArrayList<>();
+      for(Recomment recomment:recommentList){
+        recommentResponseDtos.add(
+                RecommentResponseDto
+                        .builder()
+                        .id(recomment.getId())
+                        .author(recomment.getMember().getNickname())
+                        .content(recomment.getContent())
+                        .likenum(recomment.getLikenum())
+                        .build()
+        );
+      }
+      commentResponseDtos.add(
+              CommentResponseDto
+                      .builder()
+                      .id(comment.getId())
+                      .author(member.getNickname())
+                      .content(comment.getContent())
+                      .likenum(comment.getLikenum())
+                      .recommentResponseDtos(recommentResponseDtos)
+                      .createdAt(comment.getCreatedAt())
+                      .modifiedAt(comment.getModifiedAt())
+                      .build()
+      );
+    }
+
+    return commentResponseDtos;
+
+  }
+
+  @Transactional
+  public ResponseDto<?> likePost(Long id, HttpServletRequest request) {
+    if (null == request.getHeader("Refresh-Token")) {
+      return ResponseDto.fail("MEMBER_NOT_FOUND",
+              "로그인이 필요합니다.");
+    }
+    if (null == request.getHeader("Authorization")) {
+      return ResponseDto.fail("MEMBER_NOT_FOUND",
+              "로그인이 필요합니다.");
+    }
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
+    Post post = isPresentPost(id);
+    if (null == post) {
+      return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
+    }
+
+
+    List<Postlike> postlikes=postlikeRepository.findAllByPost(post);
+    boolean check=false;
+    for(Postlike postlike:postlikes)
+    {
+      if(postlike.getMember().equals(member))
+      {
+        check=true;
+        System.out.println("이미 좋아요한 게시물입니다.");
+        post.pushDislike();
+        postlikeRepository.delete(postlike);
+        break;
+      }
+    }
+    if(check==false)
+    {
+      post.pushLike();
+      System.out.println("좋아요.");
+      Postlike postlike= Postlike.builder()
+              .member(member)
+              .post(post)
+              .build();
+      postlikeRepository.save(postlike);
+    }
+
+    return ResponseDto.success("Push 'like' button");
+  }
+
+  @Transactional
+  public ResponseDto<?> getMyPage(HttpServletRequest request) {
+    if (null == request.getHeader("Refresh-Token")) {
+      return ResponseDto.fail("MEMBER_NOT_FOUND",
+              "로그인이 필요합니다.");
+    }
+    if (null == request.getHeader("Authorization")) {
+      return ResponseDto.fail("MEMBER_NOT_FOUND",
+              "로그인이 필요합니다.");
+    }
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
+
+    List<Post> postList = postRepository.findAllByMember(member);
+
+    List<PostResponseDto> responseDtos = new ArrayList<>();
+    for (Post post : postList) {
+      responseDtos.add(
+              PostResponseDto.builder()
+                      .id(post.getId())
+                      .title(post.getTitle())
+                      .content(post.getContent())
+                      .author(post.getMember().getNickname())
+                      .Url(post.getUrl())
+                      .likenum(post.getLikenum())
+                      .commentResponseDtoList(commentByPost(post,post.getMember()))
+                      .createdAt(post.getCreatedAt())
+                      .modifiedAt(post.getModifiedAt())
+                      .build()
+      );
+    }
+    return ResponseDto.success(responseDtos);
+
+  }
+
+
 }

@@ -2,20 +2,25 @@ package com.example.intermediate.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import java.util.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import javax.persistence.*;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.Hibernate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Builder
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-public class Member extends Timestamped {
+public class Member extends Timestamped  {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,18 +29,16 @@ public class Member extends Timestamped {
   @Column(nullable = false)
   private String nickname;
 
+  @OneToMany(mappedBy = "member",fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Post> posts;
+
+
+
+
+
   @Column(nullable = false)
   @JsonIgnore
   private String password;
-
-  @Column
-  private static List<Long> postLike;
-
-  @Column
-  private static List<Long> commentLike;
-
-  @Column
-  private static List<Long> replyLike;
 
 
   @Override
@@ -55,18 +58,51 @@ public class Member extends Timestamped {
     return getClass().hashCode();
   }
 
+
+
+  /*public void pushPostLike(Post post)
+  {
+    if(!this.postlikelist.contains(post.getId()))
+    {
+      this.postlikelist.add(post.getId());
+      post.pushLike();
+      System.out.println("Like!");
+    }
+    else{
+      this.postlikelist.remove(post.getId());
+      post.pushDislike();
+      System.out.println("이미 좋아요한 게시물입니다.");
+    }
+  }
+  public void pushCommentLike(Comment comment)
+  {
+    if(!this.commentlikelist.contains(comment.getId()))
+    {
+      this.commentlikelist.add(comment.getId());
+      comment.pushLike();
+      System.out.println("Like!");
+    }
+    else{
+      this.commentlikelist.remove(comment.getId());
+      comment.pushDislike();
+      System.out.println("이미 좋아요한 댓글입니다.");
+    }
+  }
+  public void pushRecommentLike(Recomment recomment)
+  {
+    if(!this.recommentlikelist.contains(recomment.getId()))
+    {
+      this.recommentlikelist.add(recomment.getId());
+      recomment.pushLike();
+      System.out.println("Like!");
+    }
+    else{
+      this.recommentlikelist.remove(recomment.getId());
+      recomment.pushDislike();
+      System.out.println("이미 좋아요한 대댓글입니다.");
+    }
+  }*/
   public boolean validatePassword(PasswordEncoder passwordEncoder, String password) {
     return passwordEncoder.matches(password, this.password);
   }
-
-//  @OneToMany(fetch = FetchType.LAZY, mappedBy = "member", cascade = CascadeType.ALL)
-//  private Set<PostLike> postLikeList = new HashSet<>();
-//
-//
-//  @OneToMany(fetch = FetchType.LAZY, mappedBy = "member", cascade = CascadeType.ALL)
-//  private Set<CommentLike> commentLikeList = new HashSet<>();
-//
-//
-//  @OneToMany(fetch = FetchType.LAZY, mappedBy = "member", cascade = CascadeType.ALL)
-//  private Set<ReplyLike> reCommentLikeList = new HashSet<>();
 }

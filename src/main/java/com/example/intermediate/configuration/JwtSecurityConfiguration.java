@@ -9,9 +9,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-@RequiredArgsConstructor //기본생성자
+@RequiredArgsConstructor
 public class JwtSecurityConfiguration
-    extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
+        extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
 
   private final String SECRET_KEY;
   private final TokenProvider tokenProvider;

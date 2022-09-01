@@ -30,27 +30,31 @@ public class Comment extends Timestamped {
   @ManyToOne(fetch = FetchType.LAZY)
   private Post post;
 
+  @OneToMany(mappedBy = "comment",fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Recomment> recomments;
   @Column(nullable = false)
   private String content;
 
   @Column(nullable = false)
-  private long commentLikeCount;
-
-  @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-  private List<Reply> replys;
+  private int likenum;
 
   public void update(CommentRequestDto commentRequestDto) {
     this.content = commentRequestDto.getContent();
   }
 
+
+  public void pushLike()
+  {
+    this.likenum++;
+  }
+  public void pushDislike()
+  {
+    if(this.likenum>0)
+    {
+      this.likenum--;
+    }
+  }
   public boolean validateMember(Member member) {
     return !this.member.equals(member);
   }
-
-  public long pluslikecount(){
-    return commentLikeCount++;
-  }
-
-  public long minuslikecount(){return commentLikeCount--; }
 }
-
