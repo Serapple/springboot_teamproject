@@ -34,6 +34,8 @@ public class Post extends Timestamped {
   @Column(nullable = false)
   private String content;
 
+  @Column(nullable = false)
+  private int likenum;
 
   @Column(nullable = false)
   private String Url;
@@ -51,7 +53,17 @@ public class Post extends Timestamped {
     this.content = postRequestDto.getContent();
   }
 
-
+  public void pushLike()
+  {
+    this.likenum++;
+  }
+  public void pushDislike()
+  {
+    if(this.likenum>0)
+    {
+      this.likenum--;
+    }
+  }
   public boolean validateMember(Member member) {
     return !this.member.equals(member);
   }

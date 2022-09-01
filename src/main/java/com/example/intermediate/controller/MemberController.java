@@ -21,6 +21,7 @@ public class MemberController {
 
   @RequestMapping(value = "/api/member/signup", method = RequestMethod.POST)
   public ResponseDto<?> signup(@RequestBody @Valid MemberRequestDto requestDto) {
+
     return memberService.createMember(requestDto);
   }
 

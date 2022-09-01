@@ -3,11 +3,8 @@ package com.example.intermediate.service;
 import com.example.intermediate.controller.response.RecommentResponseDto;
 import com.example.intermediate.controller.response.ResponseDto;
 import com.example.intermediate.controller.response.CommentResponseDto;
-import com.example.intermediate.domain.Comment;
-import com.example.intermediate.domain.Member;
-import com.example.intermediate.domain.Post;
+import com.example.intermediate.domain.*;
 import com.example.intermediate.controller.request.CommentRequestDto;
-import com.example.intermediate.domain.Recomment;
 import com.example.intermediate.jwt.TokenProvider;
 
 import java.util.ArrayList;
@@ -16,6 +13,7 @@ import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
 
 import com.example.intermediate.repository.RecommentRepository;
+import com.example.intermediate.repository.RecommentlikeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RecommentService {
 
     private final RecommentRepository recommentRepository;
+    private final RecommentlikeRepository recommentlikeRepository;
     private final CommentService commentService;
     private final TokenProvider tokenProvider;
 
@@ -57,6 +56,7 @@ public class RecommentService {
                 .member(member)
                 .comment(comment)
                 .content(requestDto.getContent())
+                .likenum(0)
                 .build();
 
         recommentRepository.save(recomment);
@@ -181,5 +181,50 @@ public class RecommentService {
         }
         return tokenProvider.getMemberFromAuthentication();
     }
+    @Transactional
+    public ResponseDto<?> likeRecomment(Long id, HttpServletRequest request) {
+        if (null == request.getHeader("Refresh-Token")) {
+            return ResponseDto.fail("MEMBER_NOT_FOUND",
+                    "로그인이 필요합니다.");
+        }
+        if (null == request.getHeader("Authorization")) {
+            return ResponseDto.fail("MEMBER_NOT_FOUND",
+                    "로그인이 필요합니다.");
+        }
+        Member member = validateMember(request);
+        if (null == member) {
+            return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+        }
+        Recomment recomment = isPresentRecomment(id);
+        if (null == recomment) {
+            return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
+        }
 
+
+        List<Recommentlike> recommentlikes=recommentlikeRepository.findAllByRecomment(recomment);
+        boolean check=false;
+        for(Recommentlike recommentlike:recommentlikes)
+        {
+            if(recommentlike.getMember().equals(member))
+            {
+                check=true;
+                System.out.println("이미 좋아요한 게시물입니다.");
+                recomment.pushDislike();
+                recommentlikeRepository.delete(recommentlike);
+                break;
+            }
+        }
+        if(check==false)
+        {
+            recomment.pushLike();
+            System.out.println("좋아요.");
+            Recommentlike recommentlike= Recommentlike.builder()
+                    .member(member)
+                    .recomment(recomment)
+                    .build();
+            recommentlikeRepository.save(recommentlike);
+        }
+
+        return ResponseDto.success("Push 'like' button");
+    }
 }

@@ -36,5 +36,9 @@ public class RecommentController {
         return recommentService.deleteRecomment(id, request);
     }
 
-
+    @RequestMapping(value = "/api/auth/recommentlike/{id}", method = RequestMethod.POST)
+    public ResponseDto<?> likeRecomment(@PathVariable Long id,
+                                     HttpServletRequest request) {
+        return recommentService.likeRecomment(id, request);
+    }
 }
