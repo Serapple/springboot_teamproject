@@ -54,4 +54,8 @@ public class PostController {
     return postService.likePost(id, request);
   }
 
+  @RequestMapping(value = "/api/member/mypage", method = RequestMethod.GET)
+  public ResponseDto<?> mypage(HttpServletRequest request) {
+    return postService.getMyPage(request);
+  }
 }

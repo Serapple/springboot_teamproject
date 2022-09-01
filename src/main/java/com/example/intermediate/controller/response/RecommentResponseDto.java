@@ -15,7 +15,7 @@ public class RecommentResponseDto {
     private Long id;
     private String author;
     private String content;
-
+    private int likenum;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 }

@@ -10,7 +10,7 @@ import com.example.intermediate.domain.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CommentlikeRepository extends JpaRepository<Commentlike, Long> {
-    List<Commentlike> findAllByMember(Member member);
+    ;
     List<Commentlike> findAllByComment(Comment comment);
 
 }

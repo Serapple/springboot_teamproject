@@ -17,6 +17,7 @@ public class CommentResponseDto {
   private Long id;
   private String author;
   private String content;
+  private int likenum;
   private List<RecommentResponseDto> recommentResponseDtos;
   private LocalDateTime createdAt;
   private LocalDateTime modifiedAt;
