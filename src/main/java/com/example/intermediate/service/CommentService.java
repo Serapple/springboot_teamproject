@@ -3,11 +3,8 @@ package com.example.intermediate.service;
 import com.example.intermediate.controller.response.RecommentResponseDto;
 import com.example.intermediate.controller.response.ResponseDto;
 import com.example.intermediate.controller.response.CommentResponseDto;
-import com.example.intermediate.domain.Comment;
-import com.example.intermediate.domain.Member;
-import com.example.intermediate.domain.Post;
+import com.example.intermediate.domain.*;
 import com.example.intermediate.controller.request.CommentRequestDto;
-import com.example.intermediate.domain.Recomment;
 import com.example.intermediate.jwt.TokenProvider;
 import com.example.intermediate.repository.CommentRepository;
 import java.util.ArrayList;
@@ -16,6 +13,7 @@ import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.bind.SchemaOutputResolver;
 
+import com.example.intermediate.repository.CommentlikeRepository;
 import com.example.intermediate.repository.RecommentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CommentService {
 
   private final CommentRepository commentRepository;
+  private final CommentlikeRepository commentlikeRepository;
 
   private final RecommentRepository recommentRepository;
   private final TokenProvider tokenProvider;
@@ -57,6 +56,7 @@ public class CommentService {
             .member(member)
             .post(post)
             .content(requestDto.getContent())
+            .likenum(0)
             .build();
     commentRepository.save(comment);
     return ResponseDto.success(
@@ -205,5 +205,52 @@ public class CommentService {
     return recommentResponseDtos;
 
   }
+  @Transactional
+  public ResponseDto<?> likeComment(Long id, HttpServletRequest request) {
+    if (null == request.getHeader("Refresh-Token")) {
+      return ResponseDto.fail("MEMBER_NOT_FOUND",
+              "로그인이 필요합니다.");
+    }
+    if (null == request.getHeader("Authorization")) {
+      return ResponseDto.fail("MEMBER_NOT_FOUND",
+              "로그인이 필요합니다.");
+    }
+    Member member = validateMember(request);
+    if (null == member) {
+      return ResponseDto.fail("INVALID_TOKEN", "Token이 유효하지 않습니다.");
+    }
+    Comment comment = isPresentComment(id);
+    if (null == comment) {
+      return ResponseDto.fail("NOT_FOUND", "존재하지 않는 게시글 id 입니다.");
+    }
+
+
+    List<Commentlike> commentlikes=commentlikeRepository.findAllByComment(comment);
+    boolean check=false;
+    for(Commentlike commentlike:commentlikes)
+    {
+      if(commentlike.getMember().equals(member))
+      {
+        check=true;
+        System.out.println("이미 좋아요한 댓글입니다.");
+        comment.pushDislike();
+        commentlikeRepository.delete(commentlike);
+        break;
+      }
+    }
+    if(check==false)
+    {
+      comment.pushLike();
+      System.out.println("좋아요.");
+      Commentlike commentlike= Commentlike.builder()
+              .member(member)
+              .comment(comment)
+              .build();
+      commentlikeRepository.save(commentlike);
+    }
+
+    return ResponseDto.success("Push 'like' button");
+  }
+
 
 }

@@ -48,5 +48,14 @@ public class PostController {
     return postService.deletePost(id, request);
   }
 
+  @RequestMapping(value = "/api/auth/postlike/{id}", method = RequestMethod.POST)
+  public ResponseDto<?> likePost(@PathVariable Long id,
+                                   HttpServletRequest request) {
+    return postService.likePost(id, request);
+  }
 
+  @RequestMapping(value = "/api/member/mypage", method = RequestMethod.GET)
+  public ResponseDto<?> mypage(HttpServletRequest request) {
+    return postService.getMyPage(request);
+  }
 }
